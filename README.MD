@@ -1,8 +1,7 @@
-#### Restoid
-##	App to locate a file in a zfs snapshot and restore it
-##	Intended to be used with sanoid/syncoid/findoid - amazing
-##	utilities from the sanoid project: https://github.com/jimsalterjrs/sanoid
-## 
+## Restoid
+####	App to locate a file in a zfs snapshot and restore it
+Intended to be used with sanoid/syncoid/findoid - amazing
+utilities from the sanoid project: https://github.com/jimsalterjrs/sanoid
 
 Restoid is a simple tool to search your ZFS snapshots for a file and restore it. 
 You supply the full path to the file you want to restore as a parameter:
