@@ -11,15 +11,15 @@ restoid /path/to/my/file
 or it will prompt you for the path if just executed with no parameters.
 
 $ restoid
-# Enter the file or folder path: /home/mike/k
-# Snapshots found:
-# [0] Sun Sep 15 11:43:49 2024	0.3 KB	/home/mike/.zfs/snapshot/autosnap_2024-09-17_21:00:01_hourly/k
-# Enter the unique ID of the snapshot to restore from: 0
-# Do you want to restore to the original location and overwrite? (yes/no): yes
-# Restoring from snapshot: /home/mike/.zfs/snapshot/autosnap_2024-09-17_21:00:01_hourly/k
-# Restoring to: /home/mike/k
-# Executing command: cp -R "/home/mike/.zfs/snapshot/autosnap_2024-09-17_21:00:01_hourly/k" "/home/mike/k"
-# Restore complete.
+#### Enter the file or folder path: /home/mike/k
+#### Snapshots found:
+#### [0] Sun Sep 15 11:43:49 2024	0.3 KB	/home/mike/.zfs/snapshot/autosnap_2024-09-17_21:00:01_hourly/k
+#### Enter the unique ID of the snapshot to restore from: 0
+#### Do you want to restore to the original location and overwrite? (yes/no): yes
+#### Restoring from snapshot: /home/mike/.zfs/snapshot/autosnap_2024-09-17_21:00:01_hourly/k
+#### Restoring to: /home/mike/k
+#### Executing command: cp -R "/home/mike/.zfs/snapshot/autosnap_2024-09-17_21:00:01_hourly/k" "/home/mike/k"
+#### Restore complete.
 
 I threw this together one morning when I was playing with findoid (amazing tool included with sanoid)
 
