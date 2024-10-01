@@ -3,13 +3,87 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <dirent.h>
+#include <dirent.h> // Ensure this header is included
 #include <fcntl.h>
 #include <ctype.h>
+#include <CUnit/CUnit.h>
+#include <CUnit/Basic.h>
+#include <errno.h>
 
-#define MAX_PATH 1024
-#define MAX_SNAPSHOTS 100
+#define MAX_SNAPSHOTS 10
+#define MAX_PATH 256
+#ifndef DT_DIR
+#define DT_DIR 4
+#endif
 
+
+// Mock functions
+DIR *mock_opendir(const char *name) {
+    if (strcmp(name, "valid_path") == 0) {
+        return (DIR *)1; // Mock valid directory pointer
+    }
+    errno = ENOENT;
+    return NULL;
+}
+
+struct dirent *mock_readdir(DIR *dirp) {
+    static int count = 0;
+    static struct dirent entry;
+
+    if (count == 0) {
+        entry.d_type = DT_DIR;
+        strcpy(entry.d_name, "snapshot1");
+        count++;
+        return &entry;
+    } else if (count == 1) {
+        entry.d_type = DT_DIR;
+        strcpy(entry.d_name, "snapshot2");
+        count++;
+        return &entry;
+    }
+    return NULL;
+}
+
+int mock_closedir(DIR *dirp) {
+    return 0;
+}
+
+// Function to be tested
+int list_snapshots(const char *file_path, char snapshots[MAX_SNAPSHOTS][MAX_PATH]);
+
+// Test cases
+void test_list_snapshots_directory_open_failure(void) {
+    char snapshots[MAX_SNAPSHOTS][MAX_PATH];
+    CU_ASSERT_EQUAL(list_snapshots("invalid_path", snapshots), 0);
+}
+
+void test_list_snapshots_no_snapshots_found(void) {
+    char snapshots[MAX_SNAPSHOTS][MAX_PATH];
+    CU_ASSERT_EQUAL(list_snapshots("empty_path", snapshots), 0);
+}
+
+void test_list_snapshots_snapshots_found(void) {
+    char snapshots[MAX_SNAPSHOTS][MAX_PATH];
+    int count = list_snapshots("valid_path", snapshots);
+    CU_ASSERT_EQUAL(count, 2);
+    CU_ASSERT_STRING_EQUAL(snapshots[0], "valid_path/snapshot1");
+    CU_ASSERT_STRING_EQUAL(snapshots[1], "valid_path/snapshot2");
+}
+
+int main() {
+    CU_initialize_registry();
+    CU_pSuite suite = CU_add_suite("list_snapshots_test_suite", 0, 0);
+
+    CU_add_test(suite, "test_list_snapshots_directory_open_failure", test_list_snapshots_directory_open_failure);
+    CU_add_test(suite, "test_list_snapshots_no_snapshots_found", test_list_snapshots_no_snapshots_found);
+    CU_add_test(suite, "test_list_snapshots_snapshots_found", test_list_snapshots_snapshots_found);
+
+    CU_basic_set_mode(CU_BRM_VERBOSE);
+    CU_basic_run_tests();
+    CU_cleanup_registry();
+
+    return 0;
+}
 
 void trim(char *str) {
     char *end;
@@ -20,7 +94,6 @@ void trim(char *str) {
     end[1] = '\0';
 }
 
-
 void get_file_path(char *file_path, size_t size) {
     if (strlen(file_path) == 0) {
         printf("Enter the file or folder path: ");
@@ -29,7 +102,6 @@ void get_file_path(char *file_path, size_t size) {
         }
     }
 }
-
 
 // Function to list snapshots from a specified directory
 int list_snapshots(const char *file_path, char snapshots[MAX_SNAPSHOTS][MAX_PATH]) {
@@ -40,13 +112,21 @@ int list_snapshots(const char *file_path, char snapshots[MAX_SNAPSHOTS][MAX_PATH
     dir = opendir(file_path);
     if (dir == NULL) {
         perror("Failed to open directory");
-        exit(1);
+        return 0;
     }
 
     printf("Snapshots found:\n");
     while ((entry = readdir(dir)) != NULL && count < MAX_SNAPSHOTS) {
         if (entry->d_type == DT_DIR) { // Check if it is a directory
-            snprintf(snapshots[count], MAX_PATH, "%s/%s", file_path, entry->d_name);
+            if (strlen(file_path) + strlen(entry->d_name) + 1 < MAX_PATH) {
+                strncpy(snapshots[count], file_path, MAX_PATH - 1);
+                strncat(snapshots[count], "/", MAX_PATH - strlen(snapshots[count]) - 1);
+                strncat(snapshots[count], entry->d_name, MAX_PATH - strlen(snapshots[count]) - 1);
+            } else {
+                fprintf(stderr, "Path length exceeds maximum allowed length.\n");
+                closedir(dir);
+                return count;
+            }
             trim(snapshots[count]);
             printf("[%d] %s\n", count, snapshots[count]);
             count++;
@@ -56,7 +136,6 @@ int list_snapshots(const char *file_path, char snapshots[MAX_SNAPSHOTS][MAX_PATH
 
     if (count == 0) {
         printf("No snapshots found for the given path.\n");
-        exit(1);
     }
 
     return count;
@@ -119,7 +198,6 @@ void extract_snapshot_path(const char *snapshot_info, char *snapshot_path, size_
     }
 }
 
-
 // Function to copy files
 void copy_file(const char *src, const char *dest) {
     int src_fd, dest_fd;
@@ -146,6 +224,7 @@ void copy_file(const char *src, const char *dest) {
     close(src_fd);
     close(dest_fd);
 }
+
 // Function to restore the file from the selected snapshot
 void restore_file(const char *selected_snapshot, const char *restore_path, const char *file_path) {
     char snapshot_path[MAX_PATH];
@@ -160,23 +239,4 @@ void restore_file(const char *selected_snapshot, const char *restore_path, const
     // Copy the file
     copy_file(snapshot_path, full_restore_path);
     printf("Restore complete.\n");
-}
-
-int main(int argc, char *argv[]) {
-    char file_path[MAX_PATH] = "";
-    char restore_path[MAX_PATH] = "";
-    char snapshots[MAX_SNAPSHOTS][MAX_PATH];
-
-    if (argc > 1) {
-        strncpy(file_path, argv[1], sizeof(file_path) - 1);
-        file_path[sizeof(file_path) - 1] = '\0';
-    }
-    get_file_path(file_path, sizeof(file_path));
-
-    int total_snapshots = list_snapshots(file_path, snapshots);
-    int snapshot_id = get_snapshot_id(total_snapshots);
-    confirm_restore(restore_path, file_path, sizeof(restore_path));
-    restore_file(snapshots[snapshot_id], restore_path, file_path);
-
-    return 0;
 }
